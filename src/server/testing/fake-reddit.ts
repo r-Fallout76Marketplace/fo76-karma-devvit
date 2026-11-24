@@ -25,8 +25,6 @@ export class FakeReddit implements RedditPort {
     { error: Error; once: boolean }
   >();
 
-  /** Every call to a port method, so a test can show nothing was fetched. */
-  calls = 0;
   private readonly callsByName = new Map<string, number>();
 
   private readonly failingReplyTargets = new Set<string>();
@@ -63,7 +61,6 @@ export class FakeReddit implements RedditPort {
   }
 
   private called(name: string): void {
-    this.calls++;
     this.callsByName.set(name, this.callCount(name) + 1);
     const failure = this.failures.get(name);
     if (failure) {

@@ -2,21 +2,9 @@
 // readers for tests.
 
 import type { RedisPort, RedisTxPort } from '../store';
-import type { ImportedReward } from '../types';
+import type { StoredReward } from '../types';
 
 type ZMember = { member: string; score: number };
-type ZRangeOptions = {
-  by: 'score' | 'rank';
-  limit?: { offset: number; count: number };
-};
-
-function parseBound(bound: number | string): number {
-  if (typeof bound === 'number') return bound;
-  if (bound === '+inf') return Number.POSITIVE_INFINITY;
-  if (bound === '-inf') return Number.NEGATIVE_INFINITY;
-  return Number(bound);
-}
-
 export class FakeRedis implements RedisPort {
   private readonly strings = new Map<string, string>();
   private readonly hashes = new Map<string, Map<string, string>>();
@@ -134,12 +122,7 @@ export class FakeRedis implements RedisPort {
     return added;
   }
 
-  async zRange(
-    key: string,
-    start: number | string,
-    stop: number | string,
-    options?: ZRangeOptions
-  ): Promise<ZMember[]> {
+  async zRange(key: string, start: number, stop: number): Promise<ZMember[]> {
     const sorted = [...this.zset(key)]
       .map(([member, score]) => ({ member, score }))
       .sort(
@@ -147,18 +130,8 @@ export class FakeRedis implements RedisPort {
           a.score - b.score ||
           (a.member < b.member ? -1 : a.member > b.member ? 1 : 0)
       );
-    if (options?.by === 'score') {
-      const [low, high] = [parseBound(start), parseBound(stop)];
-      const inRange = sorted.filter(
-        (row) => row.score >= low && row.score <= high
-      );
-      // The real client sends count 1000 when a range by score has no limit.
-      const limit = options.limit ?? { offset: 0, count: 1000 };
-      return inRange.slice(limit.offset, limit.offset + limit.count);
-    }
-    const from =
-      Number(start) < 0 ? sorted.length + Number(start) : Number(start);
-    const to = Number(stop) < 0 ? sorted.length + Number(stop) : Number(stop);
+    const from = start < 0 ? sorted.length + start : start;
+    const to = stop < 0 ? sorted.length + stop : stop;
     return sorted.slice(Math.max(from, 0), to + 1);
   }
 
@@ -219,29 +192,21 @@ export class FakeRedis implements RedisPort {
     this.touch(key);
     return next;
   }
-
-  /** Every field of a hash, for a test to compare. */
-  async hGetAll(key: string): Promise<Record<string, string>> {
-    this.live(key);
-    return Object.fromEntries(this.hashes.get(key) ?? []);
-  }
 }
 
 /** The reward entries of a user's history, oldest first, read from the store's `history:` key. */
 export async function historyOf(
   redis: FakeRedis,
   username: string
-): Promise<ImportedReward[]> {
-  const rows = await redis.zRange(`history:${username.toLowerCase()}`, 0, -1, {
-    by: 'rank',
-  });
-  return rows.map((row) => JSON.parse(row.member) as ImportedReward);
+): Promise<StoredReward[]> {
+  const rows = await redis.zRange(`history:${username.toLowerCase()}`, 0, -1);
+  return rows.map((row) => JSON.parse(row.member) as StoredReward);
 }
 
 /** Every reward in the store's `events` key, oldest first. */
-export async function eventsOf(redis: FakeRedis): Promise<ImportedReward[]> {
-  const rows = await redis.zRange('events', 0, -1, { by: 'rank' });
-  return rows.map((row) => JSON.parse(row.member) as ImportedReward);
+export async function eventsOf(redis: FakeRedis): Promise<StoredReward[]> {
+  const rows = await redis.zRange('events', 0, -1);
+  return rows.map((row) => JSON.parse(row.member) as StoredReward);
 }
 
 class FakeTx implements RedisTxPort {

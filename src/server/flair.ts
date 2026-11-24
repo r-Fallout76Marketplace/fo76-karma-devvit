@@ -7,7 +7,6 @@ const EMOJIS: [Platform, string][] = [
   ['PC', ':pc:'],
 ];
 
-/** The flair text and template for a user, from their profile and role. */
 export function flairFor(
   profile: Profile,
   role: { isMod: boolean; isCourier: boolean },
@@ -38,7 +37,6 @@ function templateFor(
   return templates.tier0;
 }
 
-/** Sets a user's flair from their stored profile and their role. */
 export async function refreshFlair(
   ports: Pick<Ports, 'reddit' | 'store' | 'config'>,
   username: string,

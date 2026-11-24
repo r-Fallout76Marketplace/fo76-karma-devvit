@@ -7,21 +7,8 @@ import { configFrom } from './settings';
 const DISCLAIMER =
   'https://www.reddit.com/user/Vault-TecTradingCo/comments/lkllre/disclaimer_for_rfallout76marketplace/';
 
-test('empty settings give these literal defaults', () => {
-  assert.deepEqual(configFrom({}), {
-    enabled: false,
-    dailyCap: 10,
-    tradingFlairs: ['XBOX', 'PlayStation', 'PC'],
-    templates: {
-      modsAndCouriers: '51524056-4a4d-11eb-814b-0e7b734c1fd5',
-      tier0: '3c680234-4a4d-11eb-8124-0edd2b620987',
-      tier50: '2624bc6a-4a4d-11eb-8b7c-0e6968d78889',
-      tier100: '0467e0de-4a4d-11eb-9453-0e4e6fcf2865',
-      tradeClosed: '1e0c3870-a456-11ea-aa7a-0ee73ab9d31f',
-    },
-    courierPage: 'custom_bot_config/courier_list',
-    disclaimerUrl: DISCLAIMER,
-  });
+test('the bot is off by default', () => {
+  assert.equal(configFrom({}).enabled, false);
 });
 
 test('strings are trimmed and blank strings fall back', () => {

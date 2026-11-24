@@ -2,7 +2,7 @@
 // for tests that start from data the app did not write itself: profiles and
 // rewards from the old bot, and day counts.
 
-import { userKey, type ImportedReward, type Profile } from '../types';
+import { userKey, type StoredReward, type Profile } from '../types';
 import type { FakeRedis } from './fake-redis';
 
 export async function seedProfile(
@@ -26,7 +26,7 @@ export async function seedProfile(
  */
 export async function seedOldReward(
   redis: FakeRedis,
-  reward: ImportedReward
+  reward: StoredReward
 ): Promise<void> {
   const { commentId, postId, giver, receiver, sign, atMs } = reward;
   await redis.hSet('rewards', {

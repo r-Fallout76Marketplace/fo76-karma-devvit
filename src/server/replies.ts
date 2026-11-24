@@ -16,7 +16,11 @@ export function karmaSuccessText(
 
 export function karmaRefusalText(
   reason: KarmaRefusal,
-  context: { giver: string; receiver?: string; earlierLink?: string }
+  context: {
+    giver: string;
+    receiver?: string | undefined;
+    earlierLink?: string | undefined;
+  }
 ): string {
   const hi = `Hi u/${context.giver}!`;
   switch (reason) {
@@ -59,7 +63,6 @@ export function karmaRefusalText(
   }
 }
 
-/** The text posted on a post that was closed. */
 export function closeSuccessText(): string {
   return 'The submission has been closed, and comments have been locked. Please contact mods if you want to open the submission.';
 }
@@ -71,7 +74,6 @@ export function closeRefusalText(reason: CloseRefusal): string {
   return 'This type of submission cannot be closed. Please refer to the wiki page for more information.';
 }
 
-/** Appends the bot footer and the disclaimer link. */
 export function withFooter(body: string, disclaimerUrl: string): string {
   return (
     `${body}\n\n^(This action was performed by a bot. Please contact the mods for any questions. ` +

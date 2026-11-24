@@ -119,17 +119,7 @@ test('OP rewarding Trader gives a point, a flair, a reply and records it', async
   assert.equal(await s.run(id), 'already-handled');
 });
 
-test('a body from the payload that is not a command makes no Reddit calls', async () => {
-  const s = setup();
-  const result = await handleCommand(
-    { commentId: 't1_c1', source: 'create', body: 'hello' },
-    s.ports
-  );
-  assert.deepEqual(result, { outcome: 'not-a-command' });
-  assert.equal(s.reddit.calls, 0);
-});
-
-test('a fetched body that is not a command is not a command', async () => {
+test('a comment that is not a command', async () => {
   const s = setup();
   assert.equal(await s.run('t1_c1'), 'not-a-command');
   assert.equal(s.reddit.replies.length, 0);
@@ -473,11 +463,7 @@ test('a flair failure after the point is logged and the reply and finish still h
   assert.equal(s.reddit.replies.length, 1);
   assert.equal(s.reddit.flairs.length, 0);
   assert.equal(s.problems().length, 1);
-  assert.ok(
-    s
-      .problems()[0]
-      ?.includes('https://www.reddit.com/r/fo76/comments/p1/_/cmd/')
-  );
+  assert.ok(s.problems()[0]?.startsWith(id));
   assert.ok(s.problems()[0]?.includes('setUserFlair failed'));
   assert.equal(await s.run(id), 'already-handled');
 });
@@ -510,7 +496,7 @@ test('a failed reply leaves the claim pending, and the command resumes later wit
   assert.equal(failed.outcome, 'failed');
   assert.match(
     failed.outcome === 'failed' ? failed.message : '',
-    /comments\/p1\/_\/cmd\/ \(create\) failed: .*reddit down/
+    /^t1_cmd \(create\) failed: .*reddit down/
   );
 
   assert.equal(await s.karmaOf('Trader'), 1);
@@ -808,4 +794,33 @@ test('two deliveries of a !close at once reply once', async () => {
   const outcomes = await Promise.all([s.run(id), s.run(id)]);
   assert.deepEqual([...outcomes].sort(), ['already-handled', 'closed']);
   assert.equal(s.reddit.replies.length, 1);
+});
+
+test('a re-run says when the flair could not be set', async () => {
+  const s = setup();
+  const id = opRewards(s);
+  s.reddit.failUntilRestored('setUserFlair', new Error('403'));
+  await s.run(id);
+  assert.deepEqual(await s.result(id, 'rerun'), {
+    outcome: 'rewarded',
+    flairError: 'Error: 403',
+  });
+});
+
+test('a resumed -karma replies that a point was taken', async () => {
+  const s = setup();
+  const id = modCommands(s, 't1_cmd', '-karma');
+  const restore = s.reddit.failUntilRestored('replyLocked');
+  assert.equal(await s.run(id), 'failed');
+  restore();
+  s.clock.now += IN_FLIGHT_MS + 1;
+  assert.equal(await s.run(id), 'rewarded');
+  assert.equal(await s.karmaOf('Trader'), -1);
+  assert.ok(s.reddit.replies[0]?.text.includes('decremented'));
+});
+
+test('!close works while the courier page cannot be read', async () => {
+  const s = setup();
+  s.reddit.failUntilRestored('readWikiPage');
+  assert.equal(await s.run(s.command('t1_cmd', 'OP', '!close')), 'closed');
 });

@@ -74,7 +74,6 @@ test('a new comment is a command when its body is one, decided from the payload'
   assert.deepEqual(commandOnCreate({ id: 't1_a', body: '+karma' }), {
     commentId: 't1_a',
     source: 'create',
-    body: '+karma',
   });
   assert.equal(commandOnCreate({ id: 't1_a', body: 'hello' }), undefined);
   assert.equal(commandOnCreate({ id: 't1_a' }), undefined);

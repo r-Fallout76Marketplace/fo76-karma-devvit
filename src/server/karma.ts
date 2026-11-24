@@ -1,7 +1,3 @@
-// Runs one command comment from start to finish: parse, claim, build the
-// snapshot, judge it, and carry out the verdict through the ports. The order of
-// writes is in docs/features.md, under Giving karma.
-
 import { judgeClose, judgeKarma } from './checks';
 import { parseCommand, type CommandInput } from './commands';
 import { refreshFlair } from './flair';
@@ -36,13 +32,12 @@ export type Outcome =
   | 'closed'
   | 'failed';
 
-/** What handling a command did, with the reason of a refusal and the message of a failure. */
 export type CommandResult =
-  | { outcome: Exclude<Outcome, 'refused' | 'failed'> }
+  | { outcome: Exclude<Outcome, 'rewarded' | 'refused' | 'failed'> }
+  | { outcome: 'rewarded'; flairError?: string }
   | { outcome: 'refused'; reason: KarmaRefusal | CloseRefusal }
   | { outcome: 'failed'; message: string };
 
-/** One command being handled: what every step needs. */
 type Run = {
   comment: CommentInfo;
   author: string;
@@ -57,18 +52,14 @@ export async function handleCommand(
   input: CommandInput,
   ports: Ports
 ): Promise<CommandResult> {
-  if (input.body !== undefined && parseCommand(input.body) === undefined)
-    return { outcome: 'not-a-command' };
   if (!ports.config.enabled && input.source !== 'rerun')
     return { outcome: 'disabled' };
 
-  // Where the command is, for the failure message: the id until the comment is fetched.
-  const where = { text: input.commentId };
   try {
-    return await runCommand(input, ports, where);
+    return await runCommand(input, ports);
   } catch (error) {
     // The claim stays pending, so a moderator's re-run picks the command up again.
-    const message = `Command ${where.text} (${input.source}) failed: ${String(error)}`;
+    const message = `${input.commentId} (${input.source}) failed: ${String(error)}`;
     ports.log(message);
     return { outcome: 'failed', message };
   }
@@ -76,14 +67,12 @@ export async function handleCommand(
 
 async function runCommand(
   input: CommandInput,
-  ports: Ports,
-  where: { text: string }
+  ports: Ports
 ): Promise<CommandResult> {
   const { reddit, store, config, log } = ports;
   const rerun = input.source === 'rerun';
 
   const comment = await reddit.getComment(input.commentId);
-  where.text = permalinkFor(ports.subredditName, comment.postId, comment.id);
   const kind = parseCommand(comment.body);
   if (kind === undefined) return { outcome: 'not-a-command' };
 
@@ -133,14 +122,10 @@ async function closePost(run: Run): Promise<CommandResult> {
   const { reddit, store, config } = ports;
   const verdict = judgeClose(
     {
-      author: await roles.party(author),
-      post: {
-        author: post.authorName
-          ? await roles.party(post.authorName)
-          : undefined,
-        removed: post.removed,
-        flairText: post.flairText,
-      },
+      author,
+      authorIsMod: await roles.isMod(author),
+      postAuthor: post.authorName,
+      flairText: post.flairText,
     },
     config
   );
@@ -189,11 +174,15 @@ async function giveKarma(
 
   // A command that already recorded its reward is not judged again: the answer
   // could differ now (the cap counts this very reward), and the point stands.
-  const recorded = await recordedBy(kind, run, parentAuthorName);
+  const recorded = await recordedBy(run, parentAuthorName);
   if (recorded) {
-    return afterReward(run, recorded.receiver, recorded.sign, {
-      reply: !run.answeredBefore && !recorded.fromOldBot,
-    });
+    const { receiver, sign } = recorded;
+    const answered = run.answeredBefore || sign === undefined;
+    return afterReward(
+      run,
+      receiver,
+      answered ? undefined : karmaSuccessText(author, receiver, sign)
+    );
   }
 
   const giver = await roles.party(author);
@@ -221,7 +210,7 @@ async function giveKarma(
         removed: post.removed,
         flairText: post.flairText,
       },
-      alreadyRewarded:
+      earlierCommentId:
         giver.isMod || !parentAuthorName
           ? undefined
           : await store.earlierReward(post.id, author, parentAuthorName),
@@ -258,42 +247,28 @@ async function giveKarma(
     return refuse(run, 'already-rewarded', receiver, result.earlierCommentId);
   if (result.kind === 'cap') return refuse(run, 'cap', receiver);
 
-  return afterReward(run, receiver, sign, { reply: true });
+  // 'already-recorded': a concurrent run wrote it, so finish as if this one had.
+  return afterReward(run, receiver, karmaSuccessText(author, receiver, sign));
 }
 
 /**
- * The reward this command recorded on an earlier attempt, if it did. A reward
- * from the old bot's log is in the once-per-pair index only, and the old bot
- * answered it.
+ * The reward this command already recorded, if any. Without a sign, it is from
+ * the old bot's log, and the old bot answered it.
  */
 async function recordedBy(
-  kind: 'give' | 'take',
   run: Run,
   parentAuthorName: string | undefined
-): Promise<
-  { receiver: string; sign: 1 | -1; fromOldBot: boolean } | undefined
-> {
+): Promise<{ receiver: string; sign?: 1 | -1 } | undefined> {
   const { comment, author, post, ports } = run;
   const recorded = await ports.store.recordedReward(comment.id);
-  if (recorded)
-    return {
-      receiver: recorded.receiver,
-      sign: recorded.sign,
-      fromOldBot: false,
-    };
+  if (recorded) return recorded;
   if (!parentAuthorName) return undefined;
   const earlier = await ports.store.earlierReward(
     post.id,
     author,
     parentAuthorName
   );
-  return earlier === comment.id
-    ? {
-        receiver: parentAuthorName,
-        sign: kind === 'take' ? -1 : 1,
-        fromOldBot: true,
-      }
-    : undefined;
+  return earlier === comment.id ? { receiver: parentAuthorName } : undefined;
 }
 
 async function refuse(
@@ -306,58 +281,44 @@ async function refuse(
   ports.log(`${comment.id} refused: ${reason}`);
   const text = karmaRefusalText(reason, {
     giver: author,
-    ...(receiver ? { receiver } : {}),
-    ...(earlierCommentId
-      ? {
-          earlierLink: permalinkFor(
-            ports.subredditName,
-            post.id,
-            earlierCommentId
-          ),
-        }
-      : {}),
+    receiver,
+    earlierLink:
+      earlierCommentId &&
+      permalinkFor(ports.subredditName, post.id, earlierCommentId),
   });
   await reply(ports, { kind: 'comment', id: comment.id }, post.id, text);
   await ports.store.finish(comment.id);
   return { outcome: 'refused', reason };
 }
 
-/**
- * What follows a recorded reward: the receiver's flair and the reply. The
- * point is already safe, so a flair that cannot be set is reported and does
- * not stop the reply.
- */
+/** The point is recorded by now, so a flair failure must not stop the reply. */
 async function afterReward(
   run: Run,
   receiver: string,
-  sign: 1 | -1,
-  options: { reply: boolean }
+  replyText: string | undefined
 ): Promise<CommandResult> {
-  const { comment, author, post, roles, ports } = run;
-  const link = permalinkFor(ports.subredditName, post.id, comment.id);
-
+  const { comment, post, roles, ports } = run;
+  let flairError: string | undefined;
   try {
     await refreshFlair(ports, receiver, roles);
   } catch (error) {
+    flairError = String(error);
     ports.log(
-      `The karma at ${link} is recorded, but the flair of u/${receiver} could not be set: ${String(error)}. Re-run the command to set it.`
+      `${comment.id}: the point is recorded, but the flair of u/${receiver} could not be set: ${flairError}. Re-run the command to set it.`
     );
   }
 
-  if (options.reply) {
-    await reply(
-      ports,
-      { kind: 'comment', id: comment.id },
-      post.id,
-      karmaSuccessText(author, receiver, sign)
-    );
+  if (replyText !== undefined) {
+    await reply(ports, { kind: 'comment', id: comment.id }, post.id, replyText);
   }
 
   await ports.store.finish(comment.id);
-  return { outcome: 'rewarded' };
+  return flairError === undefined
+    ? { outcome: 'rewarded' }
+    : { outcome: 'rewarded', flairError };
 }
 
-/** Replies under the comment, or under the post when the comment can't take a reply. */
+/** Replies under the post instead when the comment can't take a reply. */
 async function reply(
   ports: Ports,
   target: ReplyTarget,

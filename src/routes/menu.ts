@@ -42,7 +42,6 @@ menu.post(
   forModerators((c) => authorProfile(c, true))
 );
 
-/** What a re-run did, in words a moderator can act on. */
 function rerunToast(result: CommandResult): string {
   switch (result.outcome) {
     case 'not-a-command':
@@ -51,18 +50,20 @@ function rerunToast(result: CommandResult): string {
       return 'Re-run: skipped. The author is deleted, or the comment is by a bot.';
     case 'ignored':
       return 'Re-run: the comment is removed. Approve it and the command runs.';
-    case 'already-handled':
-      return 'Re-run: another run of this command is in progress.';
     case 'refused':
       return `Re-run: refused (${result.reason}). The bot replied.`;
     case 'rewarded':
-      return 'Re-run: the reward is on record and the flair is rebuilt.';
+      return result.flairError === undefined
+        ? 'Re-run: the reward is on record and the flair is rebuilt.'
+        : `Re-run: the reward is on record, but the flair could not be set: ${result.flairError}`;
     case 'closed':
       return 'Re-run: the post is closed.';
     case 'failed':
       return `Re-run failed: ${result.message}`;
+    // A re-run takes over earlier attempts and ignores Enabled.
+    case 'already-handled':
     case 'disabled':
-      return 'Re-run: the bot is disabled.';
+      return 'Re-run: not run.';
   }
 }
 

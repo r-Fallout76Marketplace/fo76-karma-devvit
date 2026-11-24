@@ -9,7 +9,7 @@ const DEFAULTS: Config = {
   enabled: false,
   dailyCap: 10,
   tradingFlairs: ['XBOX', 'PlayStation', 'PC'],
-  // The flair templates of r/Fallout76Marketplace, as the old bot had them in its code.
+  // Flair templates of r/Fallout76Marketplace.
   templates: {
     modsAndCouriers: '51524056-4a4d-11eb-814b-0e7b734c1fd5',
     tier0: '3c680234-4a4d-11eb-8124-0edd2b620987',

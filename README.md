@@ -1,26 +1,16 @@
-# Fallout 76 Marketplace Karma
+# r/Fallout76Marketplace Bot
 
-The trading karma bot of r/Fallout76Marketplace. Traders thank each other with
-a comment, and the bot keeps the count in their user flair.
+The trading karma bot of r/Fallout76Marketplace. On a trading post, comment:
 
-## Commands
+- `+karma` in reply to the person you traded with, to give them a point
+- `!close` to close and lock your own post
 
-Comment on a trading post:
+Karma shows in your user flair. **Karma profile**, in the menu of any post or
+comment, shows its author's karma and gamertags. Moderators can also take a
+point with `-karma`, edit or look up a profile, and re-run a command.
 
-| Comment  | Does                                                             |
-| -------- | ---------------------------------------------------------------- |
-| `+karma` | In reply to the user you traded with, gives them one karma point |
-| `-karma` | Takes one point from the user you reply to. Moderators only      |
-| `!close` | Closes the post. The post's author or a moderator                |
+[Terms](https://github.com/r-Fallout76Marketplace/fo76-karma-devvit/blob/main/docs/legal/terms.md) ·
+[Privacy](https://github.com/r-Fallout76Marketplace/fo76-karma-devvit/blob/main/docs/legal/privacy-policy.md) ·
+[Contributing](https://github.com/r-Fallout76Marketplace/fo76-karma-devvit/blob/main/CONTRIBUTING.md)
 
-## Menu items
-
-- **Karma profile**, on any post or comment: the author's karma and verified gamertags.
-- For moderators: **Edit karma profile**, **Re-run karma command** and **Karma lookup**.
-
-[Terms of Service](docs/legal/terms.md) · [Privacy Policy](docs/legal/privacy-policy.md)
-
-To work on the bot, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-This app is part of Reddit's App Migration Program: it replaces the earlier
-karma bot of the same account, Fallout76MarketplaceKarmaBot.
+Part of Reddit's App Migration Program: replaces Fallout76MarketplaceKarmaBot.

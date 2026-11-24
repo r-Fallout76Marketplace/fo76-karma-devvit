@@ -1,6 +1,3 @@
-// The karma profile forms: showing a profile, and saving or deleting it from
-// the moderators' edit form.
-
 import type { UiResponse } from '@devvit/web/shared';
 
 import { refreshFlair } from './flair';
@@ -28,13 +25,13 @@ export async function profileView(
   };
 }
 
-/** Rebuilds a user's flair after an edit, as a sentence for a toast: empty when it worked, the problem when it did not. */
+/** Rebuilds the flair. Returns the problem as a sentence for the toast, or an empty string. */
 async function flairNote(ports: Ports, username: string): Promise<string> {
   try {
     await refreshFlair(ports, username);
     return '';
   } catch (error) {
-    console.error(`Flair of u/${username} not set: ${String(error)}`);
+    ports.log(`The flair of u/${username} could not be set: ${String(error)}`);
     return ` The flair could not be set: ${String(error)}`;
   }
 }
@@ -64,7 +61,11 @@ export async function editProfile(
     );
     const flair = await reddit.clearUserFlair(username).then(
       () => '',
-      (error: unknown) => ` The flair could not be cleared: ${String(error)}`
+      (error: unknown) => {
+        // Without the error, which could name the deleted user.
+        log("A deleted profile's flair could not be cleared");
+        return ` The flair could not be cleared: ${String(error)}`;
+      }
     );
     return `Deleted the karma profile and history of u/${username}. Other users' histories now show ${placeholder}.${flair}`;
   }

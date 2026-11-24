@@ -1,15 +1,13 @@
-# Privacy Policy — Fallout 76 Marketplace Karma
+# Privacy Policy — r/Fallout76Marketplace Bot
 
-_Last updated: 19 November 2026_
+_Last updated: 23 November 2026_
 
-This policy covers the **Fallout 76 Marketplace Karma** Reddit app, operated by the moderators of r/Fallout76Marketplace.
+This policy covers the **r/Fallout76Marketplace Bot** Reddit app, operated by the moderators of r/Fallout76Marketplace.
 
-**What it reads.** On r/Fallout76Marketplace, the app reads each new comment to find `+karma`, `-karma` and `!close` commands. For a command, it also reads the comment it answers and that comment's post: their authors, flair and whether they were removed. It reads the subreddit's moderator list and the wiki page that lists couriers. When someone opens one of its menu items on a post or comment, it reads that post's or comment's author.
+**What it reads.** New comments and moderator actions on the subreddit, to find commands. For a command, also the comment it replies to, the post, the moderator list and the list of couriers. When a menu item is used, the post, comment or username it was used on, and for moderator items, who used it.
 
-**What it keeps.** For each user who trades: the Reddit username, karma on this subreddit and on r/Market76, the gamertags and gamertag ids a moderator has verified, and how much karma the user gave each day, kept for two days. For each reward: both usernames, the post, the comment, the time, and whether it gave or took a point. This includes the records carried over from the subreddit's previous karma bot. All of it is held in the storage Reddit provides to the app. The app's log records each command it answers and each change a moderator makes to a profile, with the moderator's name.
+**What it keeps.** Each user's name, karma here and on r/Market76, and the gamertags and gamertag ids moderators entered. For each point given or taken: both users, the post, the comment and the time, including records from the previous bot. Some older profile edits, with the moderator's name. How many points a user gave each day, for two days, and the ids of command comments, for a year. The app's log, which Reddit keeps, names the users in commands, profile edits and errors.
 
-**Who sees it.** Anyone on Reddit can open a user's karma profile, which shows the karma and verified gamertags, and the karma total shows in the user's flair. Only moderators can change a profile.
+**Who sees it.** Anyone can see a user's karma and gamertags in the karma profile, and their karma and platforms in their flair. Gamertag ids are shown only to moderators.
 
-**Deleting your data.** Ask the moderators through [modmail](https://www.reddit.com/message/compose?to=%2Fr%2FFallout76Marketplace). A moderator deletes your profile and clears your flair, and your username in the records of the users you traded with is replaced by a placeholder. Uninstalling the app deletes everything in its storage; flairs stay on Reddit.
-
-Contact the moderators through [modmail](https://www.reddit.com/message/compose?to=%2Fr%2FFallout76Marketplace).
+**Deleting it.** Ask the moderators through [modmail](https://www.reddit.com/message/compose?to=%2Fr%2FFallout76Marketplace). They delete your profile and flair, and a placeholder replaces your name in trade records, which keep their post and comment ids. Log lines are not changed. Uninstalling the app deletes what it stores; flairs stay.

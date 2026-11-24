@@ -27,7 +27,7 @@
       },
       {
         "label": "Re-run karma command",
-        "description": "Run this comment's karma command again, for example after the bot missed it.",
+        "description": "Run this comment's +karma, -karma or !close again.",
         "location": "comment",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/rerun"

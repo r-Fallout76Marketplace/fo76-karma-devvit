@@ -137,8 +137,7 @@ export function profileForm(profile: Profile, editable: boolean): Form {
     {
       type: 'boolean',
       name: 'deleteProfile',
-      label:
-        'Delete this profile, its history and its reward index entries (a data deletion request)',
+      label: "Delete this user's karma data (on their request)",
       defaultValue: false,
     },
   ];
@@ -201,7 +200,7 @@ export function profileFromForm(
         (platform) => ({
           platform,
           username: text(platform),
-          // A gamertag with no id is stored with "0", as the old profile app did.
+          // No id is stored as "0".
           userId: text(`${platform}Id`) || '0',
         })
       ),

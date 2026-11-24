@@ -1,70 +1,34 @@
-# Working on the karma bot
+# Contributing
 
-The bot is a [Devvit Web](https://developers.reddit.com/docs) app: a small
-TypeScript server that Reddit runs, with Redis storage provided by Reddit.
-What it does, rule by rule, is in [docs/features.md](docs/features.md).
-
-## Setup
-
-You need Node 24 (see `.nvmrc`) and a Reddit account.
+A [Devvit Web](https://developers.reddit.com/docs) app. Needs Node 24.
 
 ```bash
 npm ci
-npx devvit login
 npm run verify
 ```
 
-`npm run verify` type-checks, lints, runs the tests and builds. The tests use
-in-memory fakes of Reddit and Redis, so they need no login or network.
-
-## Layout
-
-| Path                  | Holds                                                                  |
-| --------------------- | ---------------------------------------------------------------------- |
-| `devvit.json`         | The app definition: triggers, menu items, forms, settings, permissions |
-| `src/routes/`         | The endpoints Reddit calls: triggers, menu items, forms                |
-| `src/server/`         | The logic: commands, checks, flair, replies, profiles, storage         |
-| `src/server/devvit/`  | The real Reddit and Redis clients behind the interfaces the logic uses |
-| `src/server/testing/` | The fakes the tests use                                                |
-
-Settings have their defaults in two places, `devvit.json` and
-`src/server/settings.ts`. A test fails if they differ.
+The rules for giving karma are in `src/server/checks.ts`, the replies in
+`src/server/replies.ts` and the Redis keys at the top of `src/server/store.ts`.
+The daily cap, flair ids and other settings are changed in the app's settings
+on the subreddit, not in code.
 
 ## Trying a change on Reddit
 
-Uploaded versions can only be installed on subreddits with fewer than 200
-members, so test on a subreddit of your own:
-
-1. Create the subreddit and turn on user and post flair.
-2. Add post flairs named `XBOX`, `PlayStation`, `PC` and `Trade Closed`.
-3. Add four user flair templates: one each for moderators and couriers, karma
-   0 to 49, karma 50 to 99, and karma 100 and up.
-4. Run `npx devvit playtest <your subreddit>`. It installs the app there and
-   reloads it on every save.
-5. In the app's settings on that subreddit, paste the five flair template ids
-   (from **Copy ID** on the flair pages) and tick **Enabled**. A template id
-   the subreddit does not have makes Reddit answer `403 Forbidden`.
-6. Optionally, add a wiki page `custom_bot_config/courier_list` holding a
-   YAML list: `couriers:` followed by `- username` lines.
-
-`npm run dev` playtests on the subreddit named in `devvit.json` under `dev`.
+1. Only its owner can playtest an app, so make your own at
+   https://developers.reddit.com/new and a subreddit with under 200 members.
+   Put `DEVVIT_APP_NAME=<app>` and `DEVVIT_SUBREDDIT=<subreddit>` in `.env`.
+   Remove them before releasing: they override `devvit.json`.
+2. On the subreddit, turn on user and post flair. Add post flairs `XBOX`,
+   `PlayStation`, `PC` and `Trade Closed`, and four user flairs: moderators and
+   couriers, 0-49, 50-99, 100+.
+3. `npx devvit login`, then `npm run dev`.
+4. In the app's settings, paste the five flair ids and tick **Enabled**.
 
 ## Releasing
 
-1. Run `npm run verify`.
-2. Run `npm run release`. It bumps the version, uploads the code and asks
-   Reddit to review it; reviews have taken minutes, and can take a few days.
-3. Once approved, update the app on r/Fallout76Marketplace from its page in
-   the subreddit's installed apps.
+`npm run verify`, then `npm run release` from the account that owns
+`vault-tectradingco`. Then update the app on the subreddit.
 
-Releasing needs a Reddit account that is a developer of the
-`vault-tectradingco` app. Ask a current maintainer to add you.
+**Never uninstall it from r/Fallout76Marketplace: that deletes all the karma.**
 
-Never uninstall the app from r/Fallout76Marketplace: that deletes all its
-karma data. Updating a version keeps it.
-
-## Logs
-
-`npm run logs` streams the app's log on r/Fallout76Marketplace. Every command
-it answers is a line like `t1_abc123 (create): rewarded`, and every failure
-starts with the comment id and says what failed.
+`npm run logs -- --since 1d` shows the log.

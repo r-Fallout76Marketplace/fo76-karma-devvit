@@ -1,6 +1,4 @@
-// The shapes shared by the pure logic, the store and the platform code. Nothing
-// here imports Devvit, so every module built on it is testable without the
-// platform. The behaviour these types describe is docs/features.md.
+// No Devvit imports, so tests can use it.
 
 import type { Store } from './store';
 
@@ -10,7 +8,6 @@ export const PLATFORMS: readonly Platform[] = ['XBOX', 'PlayStation', 'PC'];
 export type Gamertag = { platform: Platform; username: string; userId: string };
 
 export type Profile = {
-  /** The username in its canonical case, as Reddit shows it. */
   redditUsername: string;
   /** Karma earned on r/Fallout76Marketplace. */
   karma: number;
@@ -30,16 +27,12 @@ export function userKey(username: string): string {
 
 export type FlairTemplates = {
   modsAndCouriers: string;
-  /** Local karma 0–49 (and below zero). */
   tier0: string;
-  /** Local karma 50–99. */
   tier50: string;
-  /** Local karma 100 and up. */
   tier100: string;
   tradeClosed: string;
 };
 
-/** The subreddit settings, read once per request with defaults applied. */
 export type Config = {
   enabled: boolean;
   dailyCap: number;
@@ -52,7 +45,6 @@ export type Config = {
 
 export type CommandKind = 'give' | 'take' | 'close';
 
-/** Someone involved in a command, with the roles the checks care about. */
 export type Party = {
   name: string;
   isMod: boolean;
@@ -66,7 +58,6 @@ type Content = {
   removed: boolean;
 };
 
-/** Everything the karma checks read. Built by the handler, judged by `checks.ts`. */
 export type KarmaSnapshot = {
   kind: 'give' | 'take';
   giver: Party;
@@ -74,14 +65,16 @@ export type KarmaSnapshot = {
   parent: Content & { isPost: boolean };
   post: Content & { flairText: string };
   /** The comment id of the giver's earlier reward to this receiver in this post, if any. */
-  alreadyRewarded: string | undefined;
+  earlierCommentId: string | undefined;
   /** Rewards the giver has made since midnight UTC. */
   givenToday: number;
 };
 
 export type CloseSnapshot = {
-  author: Party;
-  post: Content & { flairText: string };
+  author: string;
+  authorIsMod: boolean;
+  postAuthor: string | undefined;
+  flairText: string;
 };
 
 export type KarmaRefusal =
@@ -119,8 +112,8 @@ export type Reward = {
   atMs: number;
 };
 
-/** A reward from the old bot's log, which has no sign. */
-export type ImportedReward = Omit<Reward, 'sign'> & { sign: 1 | -1 | 0 };
+/** Sign 0 is a reward from the old bot's log, which has no sign. */
+export type StoredReward = Omit<Reward, 'sign'> & { sign: 1 | -1 | 0 };
 
 export type CommentInfo = {
   id: string;
@@ -142,7 +135,6 @@ export type PostInfo = {
 
 export type ReplyTarget = { kind: 'comment' | 'post'; id: string };
 
-/** The Reddit calls the app makes, behind an interface so tests can fake them. */
 export interface RedditPort {
   appUsername(): Promise<string>;
   /** The username of the user making this request, if they moderate the subreddit. */
@@ -164,7 +156,6 @@ export interface RedditPort {
   lockPost(postId: string): Promise<void>;
 }
 
-/** What the command handler and the moderator forms need from the outside world. */
 export type Ports = {
   reddit: RedditPort;
   store: Store;

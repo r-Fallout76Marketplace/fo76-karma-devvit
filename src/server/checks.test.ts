@@ -20,7 +20,7 @@ function snapshot(overrides: Partial<KarmaSnapshot> = {}): KarmaSnapshot {
     giver: party('Bob'),
     parent: { author: party('Alice'), removed: false, isPost: false },
     post: { author: party('Alice'), removed: false, flairText: 'PC' },
-    alreadyRewarded: undefined,
+    earlierCommentId: undefined,
     givenToday: 0,
     ...overrides,
   };
@@ -48,7 +48,7 @@ test('moderators skip every check', () => {
     giver: mod,
     parent: { author: party('Alice'), removed: true, isPost: true },
     post: { author: undefined, removed: true, flairText: 'Discussion' },
-    alreadyRewarded: 't1_old',
+    earlierCommentId: 't1_old',
     givenToday: 99,
   });
   assert.deepEqual(judgeKarma(odd, config), {
@@ -218,7 +218,7 @@ test('a moderator post author is not counted', () => {
 
 test('an earlier reward is refused with its comment id', () => {
   assert.deepEqual(
-    judgeKarma(snapshot({ alreadyRewarded: 't1_old' }), config),
+    judgeKarma(snapshot({ earlierCommentId: 't1_old' }), config),
     {
       kind: 'refuse',
       reason: 'already-rewarded',
@@ -236,7 +236,7 @@ test('the daily cap is refused at the cap, not below it', () => {
 });
 
 test('already-rewarded comes before the cap', () => {
-  const s = snapshot({ alreadyRewarded: 't1_old', givenToday: 50 });
+  const s = snapshot({ earlierCommentId: 't1_old', givenToday: 50 });
   assert.deepEqual(judgeKarma(s, config), {
     kind: 'refuse',
     reason: 'already-rewarded',
@@ -246,57 +246,46 @@ test('already-rewarded comes before the cap', () => {
 
 function closing(overrides: Partial<CloseSnapshot> = {}): CloseSnapshot {
   return {
-    author: party('Alice'),
-    post: { author: party('Alice'), removed: false, flairText: 'PC' },
+    author: 'Alice',
+    authorIsMod: false,
+    postAuthor: 'Alice',
+    flairText: 'PC',
     ...overrides,
   };
 }
 
 test('the OP can close a trading post', () => {
   assert.deepEqual(judgeClose(closing(), config), { kind: 'pass' });
-  assert.deepEqual(judgeClose(closing({ author: party('ALICE') }), config), {
+  assert.deepEqual(judgeClose(closing({ author: 'ALICE' }), config), {
     kind: 'pass',
   });
 });
 
 test('a moderator can close any post', () => {
   const s = closing({
-    author: party('Mod', { isMod: true }),
-    post: { author: party('Carol'), removed: false, flairText: 'Discussion' },
+    author: 'Mod',
+    authorIsMod: true,
+    flairText: 'Discussion',
   });
   assert.deepEqual(judgeClose(s, config), { kind: 'pass' });
 });
 
 test('someone else cannot close the post', () => {
-  assert.deepEqual(judgeClose(closing({ author: party('Bob') }), config), {
-    kind: 'refuse',
-    reason: 'not-op',
-  });
-  const deleted = closing({
-    post: { author: undefined, removed: false, flairText: 'PC' },
-  });
-  assert.deepEqual(judgeClose(deleted, config), {
-    kind: 'refuse',
-    reason: 'not-op',
-  });
-  const notTrading = closing({
-    author: party('Bob'),
-    post: { author: party('Alice'), removed: false, flairText: 'Discussion' },
-  });
+  const notOp = { kind: 'refuse', reason: 'not-op' };
+  assert.deepEqual(judgeClose(closing({ author: 'Bob' }), config), notOp);
   assert.deepEqual(
-    judgeClose(notTrading, config),
-    {
-      kind: 'refuse',
-      reason: 'not-op',
-    },
+    judgeClose(closing({ postAuthor: undefined }), config),
+    notOp
+  );
+  assert.deepEqual(
+    judgeClose(closing({ author: 'Bob', flairText: 'Discussion' }), config),
+    notOp,
     'not-op comes before not-trading'
   );
 });
 
 test('the OP cannot close a non-trading post', () => {
-  const s = closing({
-    post: { author: party('Alice'), removed: false, flairText: 'Discussion' },
-  });
+  const s = closing({ flairText: 'Discussion' });
   assert.deepEqual(judgeClose(s, config), {
     kind: 'refuse',
     reason: 'not-trading',

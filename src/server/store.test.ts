@@ -7,7 +7,7 @@ import { eventsOf, FakeRedis, historyOf } from './testing/fake-redis';
 import { seedGivenToday, seedOldReward, seedProfile } from './testing/seed';
 import {
   emptyProfile,
-  type ImportedReward,
+  type StoredReward,
   type Profile,
   type Reward,
 } from './types';
@@ -41,7 +41,7 @@ function oldReward(
   commentId: string,
   giver: string,
   receiver: string
-): ImportedReward {
+): StoredReward {
   return { commentId, postId: 'p1', giver, receiver, sign: 0, atMs: T0 };
 }
 

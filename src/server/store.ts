@@ -4,10 +4,12 @@
 // - `profiles` (hash): username to the Market76 karma and gamertags, as JSON.
 // - `rewards` (hash): `<postId>|<giver>|<receiver>` to the comment id of the
 //   reward, for the once-per-pair rule. Rewards from the old bot's log are
-//   here and in `events` and the histories, but not in `recorded`.
+//   not in `recorded`.
 // - `recorded` (hash): comment id to the reward that command recorded.
-// - `events` (sorted set): every reward as JSON, scored by its time.
-// - `history:<username>` (sorted set): the rewards a user gave or received.
+// - `events` (sorted set): every reward as JSON, scored by its time. Kept as a
+//   record: nothing reads it.
+// - `history:<username>` (sorted set): the rewards a user gave or received,
+//   for deleting a profile.
 // - `given:<giver>:<YYYY-MM-DD>`: rewards given that UTC day, for the cap.
 // - `answered:<commentId>`: the claim of a command comment.
 // - `deleting` (hash): the placeholder of each profile deletion in progress.
@@ -16,7 +18,7 @@ import { DAY_MS } from './time';
 import {
   emptyProfile,
   type Gamertag,
-  type ImportedReward,
+  type StoredReward,
   type Profile,
   type Reward,
   userKey,
@@ -24,12 +26,6 @@ import {
 
 type ZMember = { member: string; score: number };
 
-type ZRangeOptions = {
-  by: 'score' | 'rank';
-  limit?: { offset: number; count: number };
-};
-
-/** The commands queued inside a transaction. */
 export interface RedisTxPort {
   multi(): Promise<void>;
   exec(): Promise<unknown[] | null>;
@@ -55,9 +51,9 @@ export interface RedisPort {
   zRem(key: string, members: string[]): Promise<number>;
   zRange(
     key: string,
-    start: number | string,
-    stop: number | string,
-    options?: ZRangeOptions
+    start: number,
+    stop: number,
+    options: { by: 'rank' }
   ): Promise<ZMember[]>;
   hGet(key: string, field: string): Promise<string | undefined>;
   hSet(key: string, fieldValues: { [field: string]: string }): Promise<number>;
@@ -82,14 +78,13 @@ type RecordResult =
   | { kind: 'cap' };
 
 /** One line of a user's history: a reward they gave or received. */
-type HistoryEntry = ImportedReward & { kind: 'reward' };
+type HistoryEntry = StoredReward & { kind: 'reward' };
 
 const KARMA = 'karma';
 const PROFILES = 'profiles';
 const REWARDS = 'rewards';
 const RECORDED = 'recorded';
 const EVENTS = 'events';
-/** The placeholder of each profile deletion in progress, so a deletion that failed resumes with the same one. */
 const DELETING = 'deleting';
 
 const ANSWERED_TTL_MS = 365 * DAY_MS;
@@ -106,12 +101,10 @@ const PARALLEL = 25;
 const CHUNK = 500;
 const PLACEHOLDER_PREFIX = '[deleted-';
 
-/** Whether a name is the placeholder left by a deleted profile. */
 function isPlaceholder(name: string): boolean {
   return name.startsWith(PLACEHOLDER_PREFIX);
 }
 
-/** Runs a task for each item, a group at a time. */
 async function inGroups<T>(
   items: T[],
   size: number,
@@ -136,7 +129,7 @@ const rewardField = (postId: string, giver: string, receiver: string) =>
   `${postId}|${userKey(giver)}|${userKey(receiver)}`;
 
 /** Builds the JSON with a fixed key order, so the same reward is always the same sorted-set member. */
-function rewardJson(reward: ImportedReward): string {
+function rewardJson(reward: StoredReward): string {
   return JSON.stringify({
     commentId: reward.commentId,
     postId: reward.postId,
@@ -147,8 +140,7 @@ function rewardJson(reward: ImportedReward): string {
   });
 }
 
-/** The history entry of a reward, with a fixed key order like `rewardJson`. */
-function historyMember(reward: ImportedReward): ZMember {
+function historyMember(reward: StoredReward): ZMember {
   const entry: HistoryEntry = {
     kind: 'reward',
     atMs: reward.atMs,
@@ -161,8 +153,8 @@ function historyMember(reward: ImportedReward): ZMember {
   return { member: JSON.stringify(entry), score: reward.atMs };
 }
 
-function parseReward(json: string): ImportedReward {
-  return JSON.parse(json) as ImportedReward;
+function parseReward(json: string): StoredReward {
+  return JSON.parse(json) as StoredReward;
 }
 
 function parseInteger(value: string | undefined): number {
@@ -215,19 +207,16 @@ export class Store {
     });
   }
 
-  /** Adds to a user's karma atomically and returns the new value. */
   async addKarma(username: string, delta: number): Promise<number> {
     return this.redis.hIncrBy(KARMA, userKey(username), delta);
   }
 
   /**
-   * Removes a profile, its history and its entries in the reward indexes, and
-   * replaces the name with a placeholder wherever a trading partner's history
-   * or the event log still holds it. Returns the placeholder. Everything to
-   * change is found through the user's own history, which has an entry for
-   * every reward they gave or received. Safe to run again after a failure: the
-   * placeholder is kept until the end, new entries are written before old ones
-   * are removed, and the user's history goes last.
+   * Removes a profile and replaces its name with a placeholder in the partners'
+   * histories and `events`. Returns the placeholder. Safe to run again after a
+   * failure: the placeholder is kept until the end, new entries are added
+   * before old ones go, and the user's history, which lists everything to
+   * change, goes last.
    */
   async deleteProfile(username: string): Promise<string> {
     const key = userKey(username);
@@ -332,7 +321,7 @@ export class Store {
     });
   }
 
-  /** The comment id of giver's earlier reward to receiver in the post, if any. */
+  /** The comment id of the giver's earlier reward to the receiver in the post. */
   async earlierReward(
     postId: string,
     giver: string,
@@ -352,14 +341,9 @@ export class Store {
   }
 
   /**
-   * One transaction: the per-comment and once-per-pair entries, the karma
-   * change, the day's count, the event and both histories. A comment records
-   * at most one reward, whoever sent it. With `enforceLimits` the pair entry
-   * and the daily cap are gates as well, and of two racing commands one wins.
-   *
-   * Watches the two reward indexes and the day count of the giver, checks
-   * them, then writes everything. A discarded transaction means another
-   * request wrote one of them in between, so the checks run again.
+   * Records a reward in one transaction, at most once per comment. With
+   * `enforceLimits`, also once per pair and within the daily cap. A discarded
+   * transaction means a watched key changed, so the checks run again.
    */
   async recordReward(
     reward: Reward,
@@ -415,7 +399,7 @@ export class Store {
       this.redis.hGet(RECORDED, reward.commentId),
       this.redis.hGet(REWARDS, field),
     ]);
-    // A reward from the old bot's log is in the pair index only.
+    // A reward from the old bot's log is not in `recorded`.
     if (recorded !== undefined || pair === reward.commentId)
       return { kind: 'already-recorded' };
     if (!options.enforceLimits) return undefined;

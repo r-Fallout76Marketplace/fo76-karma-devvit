@@ -19,7 +19,7 @@
     "prettier": "prettier --write .",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "type-check": "tsc --build",
-    "verify": "npm run type-check && npm run lint && npm test && npm run build"
+    "verify": "prettier --check . && npm run type-check && npm run lint && npm test && npm run build"
   },
   "engines": {
     "node": ">=24.0.0"

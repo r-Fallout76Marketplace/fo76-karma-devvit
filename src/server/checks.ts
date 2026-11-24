@@ -6,7 +6,6 @@ import type {
   KarmaVerdict,
 } from './types';
 
-/** Whether a post flair text is one of the trading flairs, ignoring case and surrounding spaces. */
 export function isTradingFlair(
   flairText: string,
   tradingFlairs: string[]
@@ -15,7 +14,6 @@ export function isTradingFlair(
   return tradingFlairs.some((flair) => flair.trim().toLowerCase() === wanted);
 }
 
-/** Runs the karma checks in order and returns the first verdict that applies. */
 export function judgeKarma(
   snapshot: KarmaSnapshot,
   config: Pick<Config, 'tradingFlairs' | 'dailyCap'>
@@ -55,11 +53,11 @@ export function judgeKarma(
   const counted = [...exemptByName.values()].filter((exempt) => !exempt).length;
   if (counted > 2) return { kind: 'refuse', reason: 'too-many-users' };
 
-  if (snapshot.alreadyRewarded !== undefined) {
+  if (snapshot.earlierCommentId !== undefined) {
     return {
       kind: 'refuse',
       reason: 'already-rewarded',
-      earlierCommentId: snapshot.alreadyRewarded,
+      earlierCommentId: snapshot.earlierCommentId,
     };
   }
   if (snapshot.givenToday >= config.dailyCap)
@@ -73,20 +71,15 @@ export function judgeKarma(
   };
 }
 
-/** Decides whether the author may close the post. */
 export function judgeClose(
   snapshot: CloseSnapshot,
   config: Pick<Config, 'tradingFlairs'>
 ): CloseVerdict {
-  const { author, post } = snapshot;
-  if (author.isMod) return { kind: 'pass' };
-  if (
-    !post.author ||
-    author.name.toLowerCase() !== post.author.name.toLowerCase()
-  ) {
+  const { author, authorIsMod, postAuthor, flairText } = snapshot;
+  if (authorIsMod) return { kind: 'pass' };
+  if (author.toLowerCase() !== postAuthor?.toLowerCase())
     return { kind: 'refuse', reason: 'not-op' };
-  }
-  if (!isTradingFlair(post.flairText, config.tradingFlairs))
+  if (!isTradingFlair(flairText, config.tradingFlairs))
     return { kind: 'refuse', reason: 'not-trading' };
   return { kind: 'pass' };
 }
