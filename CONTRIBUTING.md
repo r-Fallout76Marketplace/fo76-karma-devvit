@@ -26,8 +26,8 @@ on the subreddit, not in code.
 
 ## Releasing
 
-`npm run verify`, then `npm run release` from the account that owns
-`vault-tectradingco`. Then update the app on the subreddit.
+Add a line to `CHANGELOG.md`, run `npm run verify`, then `npm run release` from
+the account that owns `vault-tectradingco`. Then update the app on the subreddit.
 
 **Never uninstall it from r/Fallout76Marketplace: that deletes all the karma.**
 
